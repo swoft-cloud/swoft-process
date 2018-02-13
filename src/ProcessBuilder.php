@@ -106,7 +106,9 @@ class ProcessBuilder
             /* @var \Swoft\Process\ProcessInterface $processObject */
             $processObject = App::getBean($name);
             self::beforeProcess($name, $boot);
-            PhpHelper::call([$processObject, 'run'], [$process]);
+            if($processObject->check()){
+                PhpHelper::call([$processObject, 'run'], [$process]);
+            }
             self::afterProcess();
         });
     }
@@ -121,7 +123,9 @@ class ProcessBuilder
         /* @var \Swoft\Process\ProcessInterface $processObject */
         $processObject = App::getBean($name);
         self::beforeProcess($name, $boot);
-        PhpHelper::call([$processObject, 'run'], [$process]);
+        if($processObject->check()){
+            PhpHelper::call([$processObject, 'run'], [$process]);
+        }
         self::afterProcess();
     }
 

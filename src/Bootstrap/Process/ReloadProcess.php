@@ -10,7 +10,7 @@ use Swoft\Process\ProcessInterface;
 
 
 /**
- * reload进程
+ * Relaod process
  *
  * @Process(name="reload", boot=true)
  */
@@ -28,5 +28,17 @@ class ReloadProcess implements ProcessInterface
         /* @var \Swoft\Process\Bootstrap\Reload $relaod */
         $relaod = App::getBean(Reload::class);
         $relaod->run();
+    }
+
+    /**
+     * @return bool
+     */
+    public function check(): bool
+    {
+        if (! App::getAppProperties()->get('server.server.autoReload', false)) {
+            output()->writeln('<info>If auto reload is to be used, Please set CRONABLE=true by .env file</info>');
+            return false;
+        }
+        return true;
     }
 }

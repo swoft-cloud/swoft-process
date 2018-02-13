@@ -13,4 +13,9 @@ interface ProcessInterface
      * @param SwoftProcess $process
      */
     public function run(SwoftProcess $process);
+
+    /**
+     * @return bool
+     */
+    public function check(): bool;
 }
