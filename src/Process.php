@@ -41,7 +41,7 @@ class Process
      *
      * @param string $name
      */
-    public function name(string $name): void
+    public function name(string $name)
     {
         if (!PhpHelper::isMac()) {
             $this->process->name($name);
@@ -90,7 +90,7 @@ class Process
      *
      * @param float $timeout
      */
-    public function setTimeout(double $timeout): void
+    public function setTimeout(double $timeout)
     {
         $this->process->setTimeout($timeout);
     }
@@ -101,7 +101,7 @@ class Process
      * @param int $msgkey
      * @param int $mode
      */
-    public function useQueue(int $msgkey = 0, int $mode = 2): void
+    public function useQueue(int $msgkey = 0, int $mode = 2)
     {
         $this->process->useQueue($msgkey, $mode);
     }
@@ -119,7 +119,7 @@ class Process
     /**
      * Remove message queue
      */
-    public function freeQueue(): void
+    public function freeQueue()
     {
         $this->process->freeQueue();
     }
@@ -198,7 +198,7 @@ class Process
      * @param bool $noclose
      *
      */
-    public static function daemon(bool $nochdir = false, bool $noclose = false): void
+    public static function daemon(bool $nochdir = false, bool $noclose = false)
     {
         SwooleProcess::daemon($nochdir, $noclose);
     }
@@ -207,7 +207,7 @@ class Process
      * @param int      $signo
      * @param callable $callback
      */
-    public static function signal(int $signo, callable $callback): void
+    public static function signal(int $signo, callable $callback)
     {
         SwooleProcess::signal($signo, $callback);
     }
