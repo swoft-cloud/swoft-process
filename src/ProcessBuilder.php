@@ -72,7 +72,7 @@ class ProcessBuilder
      * @return array
      * @throws ProcessException
      */
-    private function getProcessMaping(string $name): array
+    private static function getProcessMaping(string $name): array
     {
         $collector = ProcessCollector::getCollector();
         if (!isset($collector[$name])) {
