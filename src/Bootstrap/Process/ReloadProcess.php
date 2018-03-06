@@ -36,7 +36,6 @@ class ReloadProcess implements ProcessInterface
     public function check(): bool
     {
         if (! App::getAppProperties()->get('server.server.autoReload', false)) {
-            output()->writeln('<info>If auto reload is to be used, Please set CRONABLE=true by .env file</info>');
             return false;
         }
         return true;
