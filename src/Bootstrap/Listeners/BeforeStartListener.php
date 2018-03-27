@@ -2,6 +2,7 @@
 
 namespace Swoft\Process\Bootstrap\Listeners;
 
+use Swoft\App;
 use Swoft\Bean\Annotation\BeforeStart;
 use Swoft\Bootstrap\Listeners\Interfaces\BeforeStartInterface;
 use Swoft\Bootstrap\Server\AbstractServer;
@@ -36,7 +37,9 @@ class BeforeStartListener implements BeforeStartInterface
             $name = $processInfo['name'];
             $boot = $processInfo['boot'];
 
-            if (!$boot) {
+            $processObject = App::getBean($name);
+
+            if (!$processObject->check() || !$boot) {
                 continue;
             }
 
