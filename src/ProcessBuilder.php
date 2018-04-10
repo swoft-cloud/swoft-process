@@ -36,7 +36,6 @@ class ProcessBuilder
 
         list($name, $boot, $pipe, $inout, $co) = self::getProcessMaping($name);
         $swooleProcess = new SwooleProcess(function (SwooleProcess $swooleProcess) use ($name, $co, $boot) {
-            Coroutine::initTid();
             $process = new Process($swooleProcess);
             if ($co) {
                 self::runProcessByCo($name, $process, $boot);
