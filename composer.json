@@ -1,21 +1,21 @@
 {
   "name": "swoft/annotation",
   "type": "library",
+  "version": "v2.0.4",
   "keywords": [
     "php",
     "swoole",
     "swoft"
   ],
-  "description": "micro-service framework base on swoole",
+    "description": "swoft annotation component",
   "license": "Apache-2.0",
   "require": {
     "php": ">7.1",
     "doctrine/annotations": "^1.4",
-    "php-di/phpdoc-reader": "^2.0"
+    "php-di/phpdoc-reader": "^2.0",
+    "swoft/stdlib": "~2.0.0"
   },
   "autoload": {
-    "classmap": [
-    ],
     "psr-4": {
       "Swoft\\Annotation\\": "src/"
     }
@@ -30,13 +30,8 @@
     }
   },
   "repositories": {
-    "packagist": {
-      "type": "composer",
-      "url": "https://packagist.laravel-china.org"
-    }
   },
   "scripts": {
-    "test": "./vendor/bin/phpunit -c phpunit.xml",
-    "cs-fix": "./vendor/bin/php-cs-fixer fix $1"
+    "test": "./vendor/bin/phpunit -c phpunit.xml"
   }
 }

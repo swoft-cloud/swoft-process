@@ -3,15 +3,27 @@
 namespace Swoft\Annotation\Resource;
 
 use Composer\Autoload\ClassLoader;
+use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\AnnotationRegistry;
+use ReflectionClass;
+use ReflectionException;
+use SplFileInfo;
 use Swoft\Annotation\Annotation\Mapping\AnnotationParser;
 use Swoft\Annotation\AnnotationRegister;
+use Swoft\Annotation\Contract\LoaderInterface;
 use Swoft\Stdlib\Helper\ComposerHelper;
 use Swoft\Stdlib\Helper\DirectoryHelper;
 use Swoft\Stdlib\Helper\ObjectHelper;
-use Swoft\Annotation\Contract\LoaderInterface;
-use Swoft\Stdlib\Helper\Str;
+use function class_exists;
+use function file_exists;
+use function get_included_files;
+use function in_array;
+use function is_dir;
+use function realpath;
+use function sprintf;
+use function str_replace;
+use function strpos;
 
 /**
  * Annotation resource
@@ -93,6 +105,13 @@ class AnnotationResource extends Resource
     private $inPhar = false;
 
     /**
+     * Included files
+     *
+     * @var array
+     */
+    private $includedFiles;
+
+    /**
      * AnnotationResource constructor.
      *
      * @param array $config
@@ -107,13 +126,15 @@ class AnnotationResource extends Resource
 
         $this->registerLoader();
         $this->classLoader = ComposerHelper::getClassLoader();
+
+        $this->includedFiles = get_included_files();
     }
 
     /**
      * Load annotation resource by find ClassLoader
      *
-     * @throws \Doctrine\Common\Annotations\AnnotationException
-     * @throws \ReflectionException
+     * @throws AnnotationException
+     * @throws ReflectionException
      */
     public function load(): void
     {
@@ -121,7 +142,7 @@ class AnnotationResource extends Resource
 
         foreach ($prefixDirsPsr4 as $ns => $paths) {
             // Only scan namespaces
-            if ($this->onlyNamespaces && !\in_array($ns, $this->onlyNamespaces, true)) {
+            if ($this->onlyNamespaces && !in_array($ns, $this->onlyNamespaces, true)) {
                 $this->notify('excludeNs', $ns);
                 continue;
             }
@@ -136,24 +157,27 @@ class AnnotationResource extends Resource
             // Find package/component loader class
             foreach ($paths as $path) {
                 $loaderFile = $this->getAnnotationClassLoaderFile($path);
-                if (!\file_exists($loaderFile)) {
+                if (!file_exists($loaderFile)) {
                     $this->notify('noLoaderFile', $this->clearBasePath($path), $loaderFile);
                     continue;
                 }
 
                 $loaderClass = $this->getAnnotationLoaderClassName($ns);
-                if (!\class_exists($loaderClass)) {
+                if (!class_exists($loaderClass)) {
                     $this->notify('noLoaderClass', $loaderClass);
                     continue;
                 }
 
                 $loaderObject = new $loaderClass();
-                $isEnabled    = !isset($this->disabledAutoLoaders[$loaderClass]);
+                if (!$loaderObject instanceof LoaderInterface) {
+                    $this->notify('invalidLoader', $loaderFile);
+                    continue;
+                }
 
                 $this->notify('findLoaderClass', $this->clearBasePath($loaderFile));
 
                 // If is disable, will skip scan annotation classes
-                if ($isEnabled && $loaderObject instanceof LoaderInterface) {
+                if (!isset($this->disabledAutoLoaders[$loaderClass])) {
                     AnnotationRegister::registerAutoLoaderFile($loaderFile);
                     $this->notify('addLoaderClass', $loaderClass);
                     $this->loadAnnotation($loaderObject);
@@ -175,7 +199,7 @@ class AnnotationResource extends Resource
         if ($this->basePath) {
             $basePath = ($this->inPhar ? 'phar://' : '') . $this->basePath;
 
-            return \str_replace($basePath, '{PROJECT}', $filePath);
+            return str_replace($basePath, '{PROJECT}', $filePath);
         }
 
         return $filePath;
@@ -189,7 +213,7 @@ class AnnotationResource extends Resource
     public function isExcludedPsr4Prefix(string $namespace): bool
     {
         foreach ($this->excludedPsr4Prefixes as $prefix) {
-            if (0 === \strpos($namespace, $prefix)) {
+            if (0 === strpos($namespace, $prefix)) {
                 return true;
             }
         }
@@ -202,8 +226,8 @@ class AnnotationResource extends Resource
      *
      * @param LoaderInterface $loader
      *
-     * @throws \Doctrine\Common\Annotations\AnnotationException
-     * @throws \ReflectionException
+     * @throws AnnotationException
+     * @throws ReflectionException
      */
     private function loadAnnotation(LoaderInterface $loader): void
     {
@@ -212,18 +236,18 @@ class AnnotationResource extends Resource
         foreach ($nsPaths as $ns => $path) {
             $iterator = DirectoryHelper::recursiveIterator($path);
 
-            /* @var \SplFileInfo $splFileInfo */
+            /* @var SplFileInfo $splFileInfo */
             foreach ($iterator as $splFileInfo) {
-                $pathName = $splFileInfo->getPathname();
+                $filePath = $splFileInfo->getPathname();
                 // $splFileInfo->isDir();
-                if (\is_dir($pathName)) {
+                if (is_dir($filePath)) {
                     continue;
                 }
 
                 $fileName  = $splFileInfo->getFilename();
                 $extension = $splFileInfo->getExtension();
 
-                if ($this->loaderClassSuffix !== $extension || \strpos($fileName, '.') === 0) {
+                if ($this->loaderClassSuffix !== $extension || strpos($fileName, '.') === 0) {
                     continue;
                 }
 
@@ -233,12 +257,15 @@ class AnnotationResource extends Resource
                     continue;
                 }
 
-                $suffix    = \sprintf('.%s', $this->loaderClassSuffix);
-                $pathName  = \str_replace([$path, '/', $suffix], ['', '\\', ''], $pathName);
-                $className = \sprintf('%s%s', $ns, $pathName);
+                $suffix    = sprintf('.%s', $this->loaderClassSuffix);
+                $pathName  = str_replace([$path, '/', $suffix], ['', '\\', ''], $filePath);
+                $className = sprintf('%s%s', $ns, $pathName);
+
+                // Fix repeat included file bug
+                $autoload = in_array($filePath, $this->includedFiles, true);
 
                 // Will filtering: interfaces and traits
-                if (!\class_exists($className)) {
+                if (!class_exists($className, !$autoload)) {
                     $this->notify('noExistClass', $className);
                     continue;
                 }
@@ -287,13 +314,13 @@ class AnnotationResource extends Resource
      * @param string $namespace
      * @param string $className
      *
-     * @throws \Doctrine\Common\Annotations\AnnotationException
-     * @throws \ReflectionException
+     * @throws AnnotationException
+     * @throws ReflectionException
      */
     private function parseAnnotation(string $namespace, string $className): void
     {
         // Annotation reader
-        $reflectionClass = new \ReflectionClass($className);
+        $reflectionClass = new ReflectionClass($className);
 
         // Fix ignore abstract
         if ($reflectionClass->isAbstract()) {
@@ -309,13 +336,13 @@ class AnnotationResource extends Resource
     /**
      * Parse an class annotation
      *
-     * @param \ReflectionClass $reflectionClass
+     * @param ReflectionClass $reflectionClass
      *
      * @return array
-     * @throws \Doctrine\Common\Annotations\AnnotationException
-     * @throws \ReflectionException
+     * @throws AnnotationException
+     * @throws ReflectionException
      */
-    private function parseOneClassAnnotation(\ReflectionClass $reflectionClass): array
+    private function parseOneClassAnnotation(ReflectionClass $reflectionClass): array
     {
         // Annotation reader
         $reader    = new AnnotationReader();
@@ -393,7 +420,7 @@ class AnnotationResource extends Resource
     private function registerLoader(): void
     {
         AnnotationRegistry::registerLoader(function (string $class) {
-            if (\class_exists($class)) {
+            if (class_exists($class)) {
                 return true;
             }
 
@@ -410,9 +437,9 @@ class AnnotationResource extends Resource
      */
     private function getAnnotationClassLoaderFile(string $path): string
     {
-        $path = $this->inPhar ? $path : (string)\realpath($path);
+        $path = $this->inPhar ? $path : (string)realpath($path);
 
-        return \sprintf('%s/%s.%s', $path, $this->loaderClassName, $this->loaderClassSuffix);
+        return sprintf('%s/%s.%s', $path, $this->loaderClassName, $this->loaderClassSuffix);
     }
 
     /**
@@ -424,7 +451,7 @@ class AnnotationResource extends Resource
      */
     private function getAnnotationLoaderClassName(string $namespace): string
     {
-        return \sprintf('%s%s', $namespace, $this->loaderClassName);
+        return sprintf('%s%s', $namespace, $this->loaderClassName);
     }
 
     /**
@@ -527,7 +554,7 @@ class AnnotationResource extends Resource
      * Notify operation
      *
      * @param string $type
-     * @param        $target
+     * @param mixed  ...$target
      */
     public function notify(string $type, ...$target): void
     {
